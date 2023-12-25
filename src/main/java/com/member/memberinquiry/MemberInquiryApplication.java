@@ -26,7 +26,7 @@ public class MemberInquiryApplication {
     public void init() {
         Member admin = memberRepository.findByCustomerId("210601").orElse(Member.builder()
                 .customerId("210601")
-                .password("123456")
+                .password("P@zzw0rd216")
                 .role(Role.ROLE_ADMIN)
                 .build());
         memberRepository.save(admin);
