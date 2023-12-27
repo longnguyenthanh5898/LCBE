@@ -27,15 +27,19 @@ import java.util.Date;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
-
+import com.member.memberinquiry.dto.ResponseDTO;
 @Service
 @RequiredArgsConstructor
 public class MemberServiceImpl implements MemberService {
     private final MemberRepository memberRepository;
     private final AuthInterceptor authInterceptor;
 
+
+
+
+
     @Override
-    public Member createMember(Member member, HttpServletRequest request) {
+    public ResponseDTO<Member> createMember(Member member, HttpServletRequest request) {
         Optional<Member> memberOptionalId = memberRepository.findByCustomerId(member.getCustomerId());
         if (memberOptionalId.isPresent()) {
             throw new CustomException("Member already exists", HttpStatus.BAD_REQUEST);
@@ -49,11 +53,19 @@ public class MemberServiceImpl implements MemberService {
             throw new CustomException("Phone Number already exists", HttpStatus.BAD_REQUEST);
         }
         member.setRole(Role.ROLE_USER);
-        return memberRepository.save(member);
+        memberRepository.save(member);
+        return ResponseDTO.<Member>builder()
+                .success(true)
+                .data(member)
+                .message("Member created successfully")
+                .status(HttpStatus.OK.name())
+                .code(HttpStatus.OK.value())
+                .build();
+
     }
 
     @Override
-    public Member updateMember(Long id, Member memberDTO, HttpServletRequest request) {
+    public ResponseDTO<Member>  updateMember(Long id, Member memberDTO, HttpServletRequest request) {
         String sessionToken = request.getHeader("Authorization");
         Member memberToken = authInterceptor.getMember(sessionToken);
         Member member = memberRepository.findById(id).orElseThrow(() -> new CustomException("Member not found", HttpStatus.NOT_FOUND));
@@ -62,15 +74,23 @@ public class MemberServiceImpl implements MemberService {
             member.setEmail(Objects.nonNull(memberDTO.getEmail()) ? memberDTO.getEmail() : member.getEmail());
             member.setName(Objects.nonNull(memberDTO.getName()) ? memberDTO.getName() : member.getName());
             member.setPassword(Objects.nonNull(memberDTO.getPassword()) ? memberDTO.getPassword() : member.getPassword());
-            return memberRepository.save(member);
+            memberRepository.save(member);
+            return ResponseDTO.<Member>builder()
+                    .success(true)
+                    .data(member)
+                    .message("Member updated successfully")
+                    .status(HttpStatus.OK.name())
+                    .code(HttpStatus.OK.value())
+                    .build();
+
         } else {
-            throw new CustomException("Không có quyền sửa member", HttpStatus.FORBIDDEN);
+            throw new CustomException("Do not have permission to edit member", HttpStatus.FORBIDDEN);
         }
 
     }
 
     @Override
-    public PagingDTO<List<Member>> getMembers(int page, int size, String customerId, String name, String email, String phoneNumber, Date startDate, Date endDate) {
+    public ResponseDTO<PagingDTO<List<Member>>> getMembers(int page, int size, String customerId, String name, String email, String phoneNumber, Date startDate, Date endDate) {
         Sort.Direction direction = Sort.Direction.DESC;
         Sort sort = Sort.by(direction, "createdDate");
         PageRequest paging = PageRequest.of(page - 1, size, sort);
@@ -88,11 +108,17 @@ public class MemberServiceImpl implements MemberService {
                         criteriaBuilder.greaterThanOrEqualTo(root.get("createdDate"), startDate),
                         criteriaBuilder.lessThanOrEqualTo(root.get("createdDate"), endDate));
         Page<Member> memberPage = memberRepository.findAll(Specification.where(byCustomerId).and(byName).and(byEmail).and(byPhoneNumber).and(byCreatedDate).and(byRole), paging);
-        return PagingDTO.<List<Member>>builder()
-                .resource(memberPage.getContent())
-                .page(page)
-                .totalPages(memberPage.getTotalPages())
-                .totalElements(memberPage.getTotalElements())
+        return ResponseDTO.<PagingDTO<List<Member>>>builder()
+                .success(true)
+                .code(HttpStatus.OK.value())
+                .status(HttpStatus.OK.name())
+                .message("Get members successfully")
+                .data(PagingDTO.<List<Member>>builder()
+                        .resource(memberPage.getContent())
+                        .page(page)
+                        .totalPages(memberPage.getTotalPages())
+                        .totalElements(memberPage.getTotalElements())
+                        .build())
                 .build();
     }
 
@@ -104,7 +130,7 @@ public class MemberServiceImpl implements MemberService {
             Member member = memberRepository.findById(id).orElseThrow(() -> new CustomException("Member not found", HttpStatus.NOT_FOUND));
             memberRepository.delete(member);
         } else {
-            throw new CustomException("Không có quyền xóa thành viên", HttpStatus.FORBIDDEN);
+            throw new CustomException("Do not have permission to delete member", HttpStatus.FORBIDDEN);
         }
 
     }
